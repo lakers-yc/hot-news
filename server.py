@@ -1,12 +1,15 @@
 """
 热点追踪 Flask 后端服务
 聚合多个财经/科技资讯源的实时热点新闻
+支持智能分析、概念匹配、股票推荐
 """
 from flask import Flask, jsonify, request, send_file
 from datetime import datetime
 from typing import Dict, List, Any
 import threading
 import os
+import json
+from apscheduler.schedulers.background import BackgroundScheduler
 
 # 导入爬虫 - 按指定顺序
 from crawlers import (
@@ -26,7 +29,19 @@ from crawlers import (
     ToutiaoCrawler,    # 14. 今日头条
     Kr36Crawler,       # 15. 36氪
     BaiduCrawler,      # 16. 百度热榜
+    # 热榜爬虫
+    EastmoneyHotCrawler,
+    ThsHotCrawler,
+    ClsHotCrawler,
+    YicaiHotCrawler,
+    StcnHotCrawler,
+    WallstreetcnHotCrawler,
 )
+
+# 导入新增模块
+from crawlers.concept_crawler import ConceptCrawler
+from crawlers.market_crawler import MarketCrawler
+from analyzers import ReportGenerator
 
 app = Flask(__name__)
 
@@ -46,6 +61,15 @@ HOT_NEWS_DATA: Dict[str, Dict[str, Any]] = {}
 LAST_UPDATE_TIME: datetime = None
 DATA_LOCK = threading.Lock()
 
+# 报告数据存储
+REPORT_DATA: Dict[str, Any] = {}
+REPORT_UPDATE_TIME: datetime = None
+REPORT_LOCK = threading.Lock()
+
+# 初始化新增爬虫
+concept_crawler = ConceptCrawler()
+market_crawler = MarketCrawler()
+
 # 官网链接配置
 SOURCE_URLS = {
     'cls': 'https://www.cls.cn',
@@ -64,27 +88,39 @@ SOURCE_URLS = {
     'toutiao': 'https://www.toutiao.com',
     'kr36': 'https://36kr.com',
     'baidu': 'https://top.baidu.com/board?tab=realtime',
+    # 热榜链接
+    'eastmoney_hot': 'https://guba.eastmoney.com',
+    'ths_hot': 'https://q.10jqka.com.cn/gn/',
+    'cls_hot': 'https://www.cls.cn/hot',
+    'yicai_hot': 'https://www.yicai.com/news/',
+    'stcn_hot': 'https://news.stcn.com/',
+    'wallstreetcn_hot': 'https://wallstreetcn.com/',
 }
 
-# 初始化爬虫实例 - 按指定顺序
-CRAWLERS = {
+# 快讯爬虫 - 按指定顺序（仅快讯类型）
+FAST_CRAWLERS = {
     'cls': ClsCrawler(),           # 1. 财联社
-    'jin10': Jin10Crawler(),       # 2. 金十数据
+    'eastmoney': EastmoneyCrawler(),  # 2. 东方财富
     'ths': ThsCrawler(),           # 3. 同花顺
-    'eastmoney': EastmoneyCrawler(),  # 4. 东方财富
-    'xueqiu': XueqiuCrawler(),     # 5. 雪球
-    'stcn': StcnCrawler(),         # 6. 证券时报
-    'wallstreetcn': WallstreetcnCrawler(),  # 7. 华尔街见闻
-    'sse': SseCrawler(),           # 8. 上交所
-    'szse': SzseCrawler(),         # 9. 深交所
-    'gov': GovCrawler(),           # 10. 中国政府网
-    'xinhua': XinhuaCrawler(),     # 11. 新华社
-    'yicai': YicaiCrawler(),       # 12. 第一财经
-    'weibo': WeiboCrawler(),       # 13. 微博热搜
-    'toutiao': ToutiaoCrawler(),   # 14. 今日头条
-    'kr36': Kr36Crawler(),         # 15. 36氪
-    'baidu': BaiduCrawler(),       # 16. 百度热榜
+    'wallstreetcn': WallstreetcnCrawler(),  # 4. 华尔街见闻
+    'stcn': StcnCrawler(),         # 5. 证券时报
+    'yicai': YicaiCrawler(),       # 6. 第一财经
 }
+
+# 热榜爬虫 - 财经热榜优先
+HOT_CRAWLERS = {
+    'eastmoney_hot': EastmoneyHotCrawler(),   # 1. 东方财富热榜
+    'ths_hot': ThsHotCrawler(),               # 2. 同花顺热榜
+    'cls_hot': ClsHotCrawler(),               # 3. 财联社热榜
+    'yicai_hot': YicaiHotCrawler(),           # 4. 第一财经热榜
+    'stcn_hot': StcnHotCrawler(),             # 5. 证券时报热榜
+    'wallstreetcn_hot': WallstreetcnHotCrawler(),  # 6. 华尔街见闻热榜
+    'baidu': BaiduCrawler(),                  # 7. 百度热榜
+    'toutiao': ToutiaoCrawler(),              # 8. 今日头条
+}
+
+# 兼容旧接口：所有爬虫合并
+CRAWLERS = {**FAST_CRAWLERS, **HOT_CRAWLERS}
 
 
 def fetch_all_sources():
@@ -93,7 +129,10 @@ def fetch_all_sources():
 
     results = {}
 
-    for name, crawler in CRAWLERS.items():
+    # 合并所有爬虫
+    all_crawlers = {**FAST_CRAWLERS, **HOT_CRAWLERS}
+
+    for name, crawler in all_crawlers.items():
         if not crawler.enabled:
             continue
 
@@ -119,6 +158,42 @@ def fetch_all_sources():
         LAST_UPDATE_TIME = datetime.now()
 
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 数据更新完成")
+
+
+def generate_daily_report():
+    """生成每日分析报告"""
+    global REPORT_DATA, REPORT_UPDATE_TIME
+
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 开始生成每日报告...")
+
+    try:
+        # 收集所有新闻
+        all_news = []
+        with DATA_LOCK:
+            for source_name, source_data in HOT_NEWS_DATA.items():
+                for item in source_data.get('items', []):
+                    item['source'] = source_data['info'].get('name', source_name)
+                    all_news.append(item)
+
+        # 生成报告
+        generator = ReportGenerator(concept_crawler, market_crawler)
+        report = generator.generate(all_news)
+
+        # 保存报告
+        report_path = generator.save_report(report)
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 报告已保存: {report_path}")
+
+        with REPORT_LOCK:
+            REPORT_DATA = report
+            REPORT_UPDATE_TIME = datetime.now()
+
+        return report
+
+    except Exception as e:
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 报告生成失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 
 def schedule_refresh():
@@ -247,15 +322,229 @@ def get_sources():
     })
 
 
+@app.route('/api/hot-news/fast')
+def get_fast_news():
+    """获取快讯数据"""
+    results = {}
+
+    for name, crawler in FAST_CRAWLERS.items():
+        if not crawler.enabled:
+            continue
+
+        try:
+            data = crawler.get_data(use_cache=True)
+            items = data[:15] if data else []
+            results[name] = {
+                'info': {**crawler.get_source_info(), 'url': SOURCE_URLS.get(name, '#')},
+                'items': items,
+                'error': None if items else '暂无数据'
+            }
+        except Exception as e:
+            print(f"[{crawler.name}] 获取失败: {e}")
+            results[name] = {
+                'info': {**crawler.get_source_info(), 'url': SOURCE_URLS.get(name, '#')},
+                'items': [],
+                'error': str(e)
+            }
+
+    return jsonify({
+        'code': 200,
+        'message': 'success',
+        'data': results,
+        'updateTime': LAST_UPDATE_TIME.strftime('%Y-%m-%d %H:%M:%S') if LAST_UPDATE_TIME else None
+    })
+
+
+@app.route('/api/hot-news/hot')
+def get_hot_news():
+    """获取热榜数据"""
+    results = {}
+
+    for name, crawler in HOT_CRAWLERS.items():
+        if not crawler.enabled:
+            continue
+
+        try:
+            data = crawler.get_data(use_cache=True)
+            items = data[:15] if data else []
+            results[name] = {
+                'info': {**crawler.get_source_info(), 'url': SOURCE_URLS.get(name, '#')},
+                'items': items,
+                'error': None if items else '暂无数据'
+            }
+        except Exception as e:
+            print(f"[{crawler.name}] 获取失败: {e}")
+            results[name] = {
+                'info': {**crawler.get_source_info(), 'url': SOURCE_URLS.get(name, '#')},
+                'items': [],
+                'error': str(e)
+            }
+
+    return jsonify({
+        'code': 200,
+        'message': 'success',
+        'data': results,
+        'updateTime': LAST_UPDATE_TIME.strftime('%Y-%m-%d %H:%M:%S') if LAST_UPDATE_TIME else None
+    })
+
+
+@app.route('/api/hot-news/report')
+def get_report():
+    """获取分析报告"""
+    with REPORT_LOCK:
+        report = REPORT_DATA.copy() if REPORT_DATA else None
+        update_time = REPORT_UPDATE_TIME
+
+    if not report:
+        # 如果没有报告，尝试生成
+        report = generate_daily_report()
+        if not report:
+            return jsonify({
+                'code': 404,
+                'message': '报告暂未生成，请稍后再试'
+            }), 404
+
+    return jsonify({
+        'code': 200,
+        'message': 'success',
+        'data': report,
+        'updateTime': update_time.strftime('%Y-%m-%d %H:%M:%S') if update_time else None
+    })
+
+
+@app.route('/api/hot-news/report/refresh')
+def refresh_report():
+    """强制刷新报告"""
+    try:
+        # 先刷新新闻数据
+        fetch_all_sources()
+        # 再生成报告
+        report = generate_daily_report()
+
+        if report:
+            return jsonify({
+                'code': 200,
+                'message': '报告刷新成功',
+                'data': report,
+                'updateTime': REPORT_UPDATE_TIME.strftime('%Y-%m-%d %H:%M:%S') if REPORT_UPDATE_TIME else None
+            })
+        else:
+            return jsonify({
+                'code': 500,
+                'message': '报告生成失败'
+            }), 500
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'message': f'报告刷新失败: {str(e)}'
+        }), 500
+
+
+@app.route('/api/hot-news/concepts')
+def get_concepts():
+    """获取热门概念"""
+    try:
+        limit = request.args.get('limit', 20, type=int)
+        concepts = concept_crawler.get_hot_concepts(limit)
+        return jsonify({
+            'code': 200,
+            'message': 'success',
+            'data': concepts
+        })
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'message': f'获取概念数据失败: {str(e)}'
+        }), 500
+
+
+@app.route('/api/hot-news/market')
+def get_market():
+    """获取市场数据"""
+    try:
+        data = market_crawler.get_data()
+        return jsonify({
+            'code': 200,
+            'message': 'success',
+            'data': data
+        })
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'message': f'获取市场数据失败: {str(e)}'
+        }), 500
+
+
+@app.route('/api/hot-news/sentiment')
+def get_sentiment():
+    """获取市场情绪"""
+    try:
+        sentiment = market_crawler.get_market_sentiment()
+        return jsonify({
+            'code': 200,
+            'message': 'success',
+            'data': sentiment
+        })
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'message': f'获取情绪数据失败: {str(e)}'
+        }), 500
+
+
+@app.route('/api/hot-news/abnormal')
+def get_abnormal():
+    """获取异动股票"""
+    try:
+        limit = request.args.get('limit', 20, type=int)
+        abnormals = market_crawler.get_abnormal_stocks()
+        return jsonify({
+            'code': 200,
+            'message': 'success',
+            'data': abnormals[:limit]
+        })
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'message': f'获取异动数据失败: {str(e)}'
+        }), 500
+
+
 if __name__ == '__main__':
     # 启动时先获取一次数据
     print("正在初始化数据...")
     fetch_all_sources()
 
-    # 启动定时任务
-    threading.Thread(target=schedule_refresh, daemon=True).start()
-    print("定时刷新任务已启动 (每5分钟)")
+    # 生成初始报告
+    print("正在生成初始报告...")
+    generate_daily_report()
+
+    # 启动定时任务 - 使用APScheduler
+    scheduler = BackgroundScheduler()
+
+    # 每5分钟刷新新闻数据
+    scheduler.add_job(fetch_all_sources, 'interval', minutes=5, id='refresh_news')
+
+    # 每天早上8点生成报告
+    scheduler.add_job(generate_daily_report, 'cron', hour=8, minute=0, id='daily_report')
+
+    scheduler.start()
+    print("定时任务已启动:")
+    print("  - 新闻数据: 每5分钟刷新")
+    print("  - 分析报告: 每天8:00生成")
 
     # 启动 Flask 服务
     print("热点追踪服务启动在 http://localhost:5003")
-    app.run(host='0.0.0.0', port=5003, debug=False, threaded=True)
+    print("API接口:")
+    print("  - /api/hot-news/list - 获取所有热点数据")
+    print("  - /api/hot-news/report - 获取分析报告")
+    print("  - /api/hot-news/concepts - 获取热门概念")
+    print("  - /api/hot-news/market - 获取市场数据")
+    print("  - /api/hot-news/sentiment - 获取市场情绪")
+    print("  - /api/hot-news/abnormal - 获取异动股票")
+
+    try:
+        app.run(host='0.0.0.0', port=5003, debug=False, threaded=True)
+    except (KeyboardInterrupt, SystemExit):
+        scheduler.shutdown()
+        print("服务已停止")

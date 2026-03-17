@@ -10,8 +10,8 @@ const CONFIG = {
     AUTO_REFRESH: true,
 };
 
-// 数据源配置 - 仅保留可用的数据源
-const SOURCES = {
+// 数据源配置 - 快讯Tab（6个）
+const FAST_SOURCES = {
     cls: {
         name: '财联社',
         type: 'fast',
@@ -19,26 +19,19 @@ const SOURCES = {
         color: '#fa0d00',
         url: 'https://www.cls.cn'
     },
-    ths: {
-        name: '同花顺',
-        type: 'finance',
-        icon: 'bar-chart-2',
-        color: '#52c41a',
-        url: 'http://www.10jqka.com.cn'
-    },
     eastmoney: {
         name: '东方财富',
-        type: 'hot',
+        type: 'fast',
         icon: 'trending-up',
-        color: '#fa8c16',
+        color: '#fa0d00',
         url: 'https://www.eastmoney.com'
     },
-    stcn: {
-        name: '证券时报',
+    ths: {
+        name: '同花顺',
         type: 'fast',
-        icon: 'newspaper',
+        icon: 'bar-chart-2',
         color: '#fa0d00',
-        url: 'http://www.stcn.com'
+        url: 'http://www.10jqka.com.cn'
     },
     wallstreetcn: {
         name: '华尔街见闻',
@@ -47,19 +40,65 @@ const SOURCES = {
         color: '#fa0d00',
         url: 'http://wallstreetcn.com'
     },
+    stcn: {
+        name: '证券时报',
+        type: 'fast',
+        icon: 'newspaper',
+        color: '#fa0d00',
+        url: 'http://www.stcn.com'
+    },
     yicai: {
         name: '第一财经',
         type: 'fast',
         icon: 'tv',
         color: '#fa0d00',
         url: 'https://www.yicai.com'
+    }
+};
+
+// 数据源配置 - 热榜Tab（8个）- 财经热榜优先
+const HOT_SOURCES = {
+    eastmoney_hot: {
+        name: '东方财富热榜',
+        type: 'hot',
+        icon: 'trending-up',
+        color: '#fa8c16',
+        url: 'https://guba.eastmoney.com'
     },
-    toutiao: {
-        name: '今日头条',
+    ths_hot: {
+        name: '同花顺热榜',
         type: 'hot',
         icon: 'flame',
         color: '#fa8c16',
-        url: 'https://www.toutiao.com'
+        url: 'https://q.10jqka.com.cn/gn/'
+    },
+    cls_hot: {
+        name: '财联社热榜',
+        type: 'hot',
+        icon: 'flame',
+        color: '#fa8c16',
+        url: 'https://www.cls.cn/hot'
+    },
+    yicai_hot: {
+        name: '第一财经热榜',
+        type: 'hot',
+        icon: 'flame',
+        color: '#fa8c16',
+        url: 'https://www.yicai.com/news/'
+    },
+    stcn_hot: {
+        name: '证券时报热榜',
+        type: 'hot',
+        icon: 'flame',
+        color: '#fa8c16',
+        url: 'https://news.stcn.com/'
+    },
+    wallstreetcn_hot: {
+        name: '华尔街见闻热榜',
+        type: 'hot',
+        icon: 'flame',
+        color: '#fa8c16',
+        url: 'https://wallstreetcn.com/'
     },
     baidu: {
         name: '百度热榜',
@@ -67,8 +106,18 @@ const SOURCES = {
         icon: 'trending-up',
         color: '#fa8c16',
         url: 'https://top.baidu.com/board?tab=realtime'
+    },
+    toutiao: {
+        name: '今日头条',
+        type: 'hot',
+        icon: 'flame',
+        color: '#fa8c16',
+        url: 'https://www.toutiao.com'
     }
 };
+
+// 兼容旧配置 - 合并所有数据源
+const SOURCES = { ...FAST_SOURCES, ...HOT_SOURCES };
 
 // 图标 SVG
 const ICONS = {
@@ -101,6 +150,7 @@ const TYPE_LABELS = {
 // 状态
 let isLoading = false;
 let lastUpdateTime = null;
+let currentTab = 'fast';  // 当前Tab: 'fast' 或 'hot'
 
 // DOM 元素
 const newsGrid = document.getElementById('newsGrid');
@@ -143,25 +193,37 @@ function formatRelativeTime(timestamp) {
 }
 
 /**
+ * HTML转义函数 - 防止XSS
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
  * 创建新闻项 HTML
  */
 function createNewsItemHTML(item, index) {
     const rankClass = index < 3 ? 'rank-num--hot' : (index < 6 ? 'rank-num--warm' : '');
     const rankNum = index + 1;
+    const safeTitle = escapeHtml(item.title);
+    const safeUrl = escapeHtml(item.url) || '#';
 
     return `
         <li class="news-item">
             <span class="rank-num ${rankClass}" aria-label="排名 ${rankNum}">${rankNum}</span>
             <div class="news-content">
                 <a class="news-title"
-                   href="${item.url || '#'}"
+                   href="${safeUrl}"
                    target="_blank"
                    rel="noopener noreferrer"
-                   title="${item.title}">
-                    ${item.title}
+                   title="${safeTitle}">
+                    ${safeTitle}
                 </a>
             </div>
-            <time class="news-time">${item.time || ''}</time>
+            <time class="news-time">${escapeHtml(item.time) || ''}</time>
         </li>
     `;
 }
@@ -255,8 +317,9 @@ function createSkeletonHTML(sourceId, sourceConfig) {
  * 渲染加载骨架屏
  */
 function renderSkeleton() {
+    const sources = currentTab === 'fast' ? FAST_SOURCES : HOT_SOURCES;
     let html = '';
-    for (const [sourceId, sourceConfig] of Object.entries(SOURCES)) {
+    for (const [sourceId, sourceConfig] of Object.entries(sources)) {
         html += createSkeletonHTML(sourceId, sourceConfig);
     }
     newsGrid.innerHTML = html;
@@ -266,9 +329,10 @@ function renderSkeleton() {
  * 渲染新闻数据
  */
 function renderNews(data) {
+    const sources = currentTab === 'fast' ? FAST_SOURCES : HOT_SOURCES;
     let html = '';
 
-    for (const [sourceId, sourceConfig] of Object.entries(SOURCES)) {
+    for (const [sourceId, sourceConfig] of Object.entries(sources)) {
         const sourceData = data[sourceId] || { items: [], error: '暂无数据' };
         html += createCardHTML(sourceId, sourceConfig, sourceData);
     }
@@ -309,7 +373,12 @@ async function refreshSource(sourceId, btn) {
         const result = await response.json();
 
         if (result.code === 200 && result.data) {
-            const sourceConfig = SOURCES[sourceId];
+            // 从快讯或热榜配置中查找
+            let sourceConfig = FAST_SOURCES[sourceId] || HOT_SOURCES[sourceId];
+            if (!sourceConfig) {
+                sourceConfig = SOURCES[sourceId];
+            }
+
             const cardHTML = createCardHTML(sourceId, sourceConfig, {
                 items: result.data.items,
                 info: result.data.info
@@ -363,9 +432,29 @@ function showLoading(show) {
 }
 
 /**
- * 获取所有热点数据
+ * 切换Tab
  */
-async function fetchAllData(showOverlay = false) {
+function switchTab(tab) {
+    if (tab === currentTab || isLoading) return;
+
+    currentTab = tab;
+
+    // 更新Tab按钮状态
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.tab === tab) {
+            btn.classList.add('active');
+        }
+    });
+
+    // 重新加载数据
+    fetchTabData(tab);
+}
+
+/**
+ * 获取Tab数据
+ */
+async function fetchTabData(tab, showOverlay = false) {
     if (isLoading) return;
 
     if (showOverlay) {
@@ -373,8 +462,12 @@ async function fetchAllData(showOverlay = false) {
     }
     updateStatus('loading');
 
+    // 渲染骨架屏
+    renderSkeleton();
+
     try {
-        const response = await fetch(`${CONFIG.API_BASE}/api/hot-news/list`);
+        const endpoint = tab === 'fast' ? '/api/hot-news/fast' : '/api/hot-news/hot';
+        const response = await fetch(`${CONFIG.API_BASE}${endpoint}`);
         const result = await response.json();
 
         if (result.code === 200) {
@@ -388,11 +481,11 @@ async function fetchAllData(showOverlay = false) {
         console.error('请求失败:', error);
         updateStatus('error');
 
-        // 显示错误提示
+        const sources = tab === 'fast' ? FAST_SOURCES : HOT_SOURCES;
         newsGrid.innerHTML = `
             <div class="error-message" style="grid-column: 1/-1; text-align: center; padding: 40px;">
                 <p>加载数据失败，请检查网络连接或稍后重试</p>
-                <button class="btn btn-primary" onclick="location.reload()" style="margin-top: 16px;">
+                <button class="btn btn-primary" onclick="fetchTabData('${tab}', true)" style="margin-top: 16px;">
                     重新加载
                 </button>
             </div>
@@ -402,6 +495,14 @@ async function fetchAllData(showOverlay = false) {
             showLoading(false);
         }
     }
+}
+
+/**
+ * 获取所有热点数据
+ */
+async function fetchAllData(showOverlay = false) {
+    // 使用新的Tab数据获取方法
+    return fetchTabData(currentTab, showOverlay);
 }
 
 /**
@@ -418,8 +519,8 @@ async function refreshAll() {
         const result = await response.json();
 
         if (result.code === 200) {
-            // 刷新成功后重新获取数据
-            await fetchAllData(false);
+            // 刷新成功后重新获取当前Tab数据
+            await fetchTabData(currentTab, false);
         } else {
             updateStatus('error');
         }
@@ -438,7 +539,7 @@ function startPolling() {
     if (!CONFIG.AUTO_REFRESH) return;
 
     setInterval(() => {
-        fetchAllData(false);
+        fetchTabData(currentTab, false);
     }, CONFIG.POLLING_INTERVAL);
 }
 
@@ -461,3 +562,230 @@ async function init() {
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', init);
+
+// ============== 报告相关功能 ==============
+
+let reportVisible = true;
+let reportData = null;
+
+/**
+ * 切换报告显示/隐藏
+ */
+function toggleReport() {
+    const content = document.getElementById('reportContent');
+    const arrow = document.getElementById('reportArrow');
+
+    reportVisible = !reportVisible;
+
+    if (reportVisible) {
+        content.style.display = 'block';
+        arrow.innerHTML = '<polyline points="6 9 12 15 18 9"></polyline>';
+    } else {
+        content.style.display = 'none';
+        arrow.innerHTML = '<polyline points="18 15 12 9 6 15"></polyline>';
+    }
+}
+
+/**
+ * 加载分析报告
+ */
+async function loadReport() {
+    const loadingEl = document.getElementById('reportLoading');
+    const bodyEl = document.getElementById('reportBody');
+    const metaEl = document.getElementById('reportMeta');
+
+    loadingEl.classList.remove('hidden');
+    bodyEl.classList.add('hidden');
+
+    try {
+        const response = await fetch(`${CONFIG.API_BASE}/api/hot-news/report`);
+        const result = await response.json();
+
+        if (result.code === 200 && result.data) {
+            reportData = result.data;
+            renderReport(result.data);
+
+            if (result.updateTime) {
+                metaEl.textContent = `更新于 ${result.updateTime}`;
+            }
+
+            loadingEl.classList.add('hidden');
+            bodyEl.classList.remove('hidden');
+        } else {
+            loadingEl.innerHTML = '报告暂未生成，请稍后再试';
+        }
+    } catch (error) {
+        console.error('加载报告失败:', error);
+        loadingEl.innerHTML = '加载报告失败，请刷新重试';
+    }
+}
+
+/**
+ * 渲染报告
+ */
+function renderReport(report) {
+    const bodyEl = document.getElementById('reportBody');
+
+    // 构建日期和时间
+    const dateHtml = `
+        <div class="report-date">
+            <strong>日期：</strong>${report.date} <strong>数据更新时间：</strong>${report.updateTime} (北京时间)
+        </div>
+    `;
+
+    // 市场情绪
+    const sentimentHtml = `
+        <div class="report-sentiment">
+            <strong>市场情绪预判：</strong>${report.marketSentiment}
+        </div>
+    `;
+
+    // 分析表格
+    let tableHtml = `
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th style="width: 35%">消息/政策</th>
+                    <th style="width: 15%">炒作方向</th>
+                    <th style="width: 10%">逻辑强度</th>
+                    <th style="width: 40%">推荐关注个股</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    if (report.analysis && report.analysis.length > 0) {
+        report.analysis.forEach(item => {
+            const news = item.news || {};
+            const concepts = (item.concepts || []).map(c => `<span class="concept-tag">${c}</span>`).join('');
+            const stocks = (item.stocks || []).map((s, i) =>
+                `<span class="stock-item">${i + 1}. <span class="stock-name">${s.name}</span>(${s.code}) - <span class="stock-logic">${s.logic}</span></span>`
+            ).join('');
+
+            tableHtml += `
+                <tr>
+                    <td>
+                        <div>${news.title || ''}</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 4px;">${news.source || ''} ${news.time || ''}</div>
+                    </td>
+                    <td>${concepts || '-'}</td>
+                    <td>${item.logicStrength || '⭐⭐'}</td>
+                    <td>${stocks || '暂无推荐'}</td>
+                </tr>
+            `;
+        });
+    } else {
+        tableHtml += '<tr><td colspan="4" style="text-align: center; color: #999;">暂无重要新闻分析</td></tr>';
+    }
+
+    tableHtml += '</tbody></table>';
+
+    // 异动股票
+    let abnormalHtml = '';
+    if (report.abnormalStocks && report.abnormalStocks.length > 0) {
+        abnormalHtml = `
+            <div class="abnormal-section">
+                <h4>📈 近期异动股票（供参考）</h4>
+                <table class="abnormal-table">
+                    <tbody>
+        `;
+
+        report.abnormalStocks.slice(0, 8).forEach(stock => {
+            abnormalHtml += `
+                <tr>
+                    <td>${stock.name}(${stock.code})</td>
+                    <td>${stock.type || ''} ${stock.change_pct || 0}%</td>
+                </tr>
+            `;
+        });
+
+        abnormalHtml += '</tbody></table></div>';
+    }
+
+    // 策略提示
+    const strategyHtml = `
+        <div class="strategy-section">
+            <h4>💡 策略师特别提示</h4>
+            <div class="strategy-item"><strong>风险提示：</strong>${report.strategy?.risk || '注意控制仓位'}</div>
+            <div class="strategy-item"><strong>操作建议：</strong>${report.strategy?.suggestion || '关注低位补涨标的'}</div>
+        </div>
+    `;
+
+    // 免责声明
+    const disclaimerHtml = `
+        <div class="disclaimer">
+            ⚠️ 风险提示：以上内容仅供参考，不构成投资建议。股市有风险，入市需谨慎。
+        </div>
+    `;
+
+    bodyEl.innerHTML = dateHtml + sentimentHtml + tableHtml + abnormalHtml + strategyHtml + disclaimerHtml;
+}
+
+/**
+ * 刷新报告
+ */
+async function refreshReport() {
+    const loadingEl = document.getElementById('reportLoading');
+    const bodyEl = document.getElementById('reportBody');
+    const metaEl = document.getElementById('reportMeta');
+    const btn = document.getElementById('refreshReportBtn');
+
+    // 显示加载状态
+    loadingEl.innerHTML = '正在生成报告，请稍候...';
+    loadingEl.classList.remove('hidden');
+    bodyEl.classList.add('hidden');
+
+    // 禁用按钮
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; animation: spin 1s linear infinite;">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="m3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            生成中...
+        `;
+    }
+
+    try {
+        const response = await fetch(`${CONFIG.API_BASE}/api/hot-news/report/refresh`);
+        const result = await response.json();
+
+        if (result.code === 200 && result.data) {
+            reportData = result.data;
+            renderReport(result.data);
+            loadingEl.classList.add('hidden');
+            bodyEl.classList.remove('hidden');
+
+            if (result.updateTime) {
+                metaEl.textContent = `更新于 ${result.updateTime}`;
+            }
+        } else {
+            loadingEl.innerHTML = '报告生成失败: ' + (result.message || '未知错误');
+        }
+    } catch (error) {
+        console.error('刷新报告失败:', error);
+        loadingEl.innerHTML = '生成报告失败，请重试';
+    } finally {
+        // 恢复按钮
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="m3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+                刷新报告
+            `;
+        }
+    }
+}
+
+// 不自动加载报告，等用户点击刷新按钮
+// const originalInit = init;
+// init = async function() {
+//     await originalInit();
+//     loadReport();
+// };

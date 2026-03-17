@@ -18,6 +18,16 @@ from .toutiao import ToutiaoCrawler
 from .ths import ThsCrawler
 from .kr36 import Kr36Crawler
 from .baidu import BaiduCrawler
+from .concept_crawler import ConceptCrawler
+from .market_crawler import MarketCrawler
+
+# 热榜爬虫
+from .eastmoney_hot import EastmoneyHotCrawler
+from .ths_hot import ThsHotCrawler
+from .cls_hot import ClsHotCrawler
+from .yicai_hot import YicaiHotCrawler
+from .stcn_hot import StcnHotCrawler
+from .wallstreetcn_hot import WallstreetcnHotCrawler
 
 __all__ = [
     'BaseCrawler',
@@ -37,4 +47,13 @@ __all__ = [
     'ThsCrawler',
     'Kr36Crawler',
     'BaiduCrawler',
+    'ConceptCrawler',
+    'MarketCrawler',
+    # 热榜爬虫
+    'EastmoneyHotCrawler',
+    'ThsHotCrawler',
+    'ClsHotCrawler',
+    'YicaiHotCrawler',
+    'StcnHotCrawler',
+    'WallstreetcnHotCrawler',
 ]

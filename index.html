@@ -518,6 +518,238 @@
         .hidden {
             display: none !important;
         }
+
+        /* 报告区域样式 */
+        .report-section {
+            background: var(--color-bg-surface);
+            border-radius: var(--radius-card);
+            box-shadow: var(--shadow-card);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .report-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--color-divider);
+            background: linear-gradient(135deg, #fa0d00 0%, #ff6b6b 100%);
+            color: #fff;
+        }
+
+        .report-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .report-meta {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .report-content {
+            padding: 20px;
+        }
+
+        .report-date {
+            font-size: 14px;
+            color: var(--color-text-secondary);
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--color-divider);
+        }
+
+        .report-sentiment {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: #fff7e6;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .report-sentiment strong {
+            color: #d48806;
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .report-table th,
+        .report-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--color-divider);
+            vertical-align: top;
+        }
+
+        .report-table th {
+            background: var(--color-bg-base);
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .report-table td {
+            color: var(--color-text-secondary);
+        }
+
+        .report-table tr:hover td {
+            background: var(--color-bg-base);
+        }
+
+        .concept-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            background: rgba(24, 144, 255, 0.1);
+            color: var(--color-accent);
+            border-radius: 3px;
+            font-size: 12px;
+            margin-right: 4px;
+        }
+
+        .stock-item {
+            display: block;
+            padding: 4px 0;
+            font-size: 12px;
+        }
+
+        .stock-name {
+            color: var(--color-primary);
+            font-weight: 500;
+        }
+
+        .stock-logic {
+            color: var(--color-text-tertiary);
+        }
+
+        .abnormal-section {
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--color-divider);
+        }
+
+        .abnormal-section h4 {
+            font-size: 14px;
+            color: var(--color-text-primary);
+            margin-bottom: 12px;
+        }
+
+        .abnormal-table {
+            width: 100%;
+            font-size: 12px;
+        }
+
+        .abnormal-table td {
+            padding: 6px 12px;
+            border-bottom: 1px dashed var(--color-divider);
+        }
+
+        .strategy-section {
+            margin-top: 20px;
+            padding: 16px;
+            background: #f6ffed;
+            border-radius: 6px;
+        }
+
+        .strategy-section h4 {
+            font-size: 14px;
+            color: #389e0d;
+            margin-bottom: 12px;
+        }
+
+        .strategy-item {
+            font-size: 13px;
+            color: var(--color-text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .strategy-item strong {
+            color: var(--color-text-primary);
+        }
+
+        .disclaimer {
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid var(--color-divider);
+            font-size: 11px;
+            color: var(--color-text-tertiary);
+            text-align: center;
+        }
+
+        .report-loading {
+            padding: 40px;
+            text-align: center;
+            color: var(--color-text-secondary);
+        }
+
+        .report-toggle {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .report-toggle:hover {
+            opacity: 0.8;
+        }
+
+        /* Tab 切换样式 */
+        .tab-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            background: var(--color-bg-surface);
+            border-radius: var(--radius-card);
+            padding: 8px;
+            box-shadow: var(--shadow-card);
+        }
+
+        .tab-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            font-family: inherit;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: transparent;
+            color: var(--color-text-secondary);
+            transition: all 0.2s ease-out;
+        }
+
+        .tab-btn:hover {
+            background: var(--color-bg-base);
+            color: var(--color-text-primary);
+        }
+
+        .tab-btn.active {
+            background: var(--color-primary);
+            color: #fff;
+        }
+
+        .tab-btn:focus-visible {
+            outline: 2px solid var(--color-accent);
+            outline-offset: 2px;
+        }
+
+        .tab-badge {
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-btn.active .tab-badge {
+            background: rgba(255, 255, 255, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -549,6 +781,55 @@
 
     <!-- 主内容 -->
     <main class="main" role="main">
+        <!-- 分析报告区域 -->
+        <section class="report-section" id="reportSection">
+            <div class="report-header">
+                <div class="report-toggle" onclick="toggleReport()" style="display: flex; align-items: center; gap: 8px;">
+                    <div>
+                        <div class="report-title">📊 智能分析报告</div>
+                        <div class="report-meta" id="reportMeta">点击刷新按钮实时生成</div>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="reportArrow" style="cursor: pointer;" onclick="toggleReport()">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                    <button class="btn btn-primary" onclick="refreshReport()" id="refreshReportBtn" style="padding: 6px 12px; font-size: 12px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <polyline points="1 20 1 14 7 14"></polyline>
+                            <path d="m3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                        刷新报告
+                    </button>
+                </div>
+            </div>
+            <div class="report-content" id="reportContent">
+                <div class="report-loading" id="reportLoading">
+                    点击上方"刷新报告"按钮生成最新分析
+                </div>
+                <div id="reportBody" class="hidden"></div>
+            </div>
+        </section>
+
+        <!-- Tab 切换 -->
+        <div class="tab-container">
+            <button class="tab-btn active" data-tab="fast" onclick="switchTab('fast')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+                快讯
+                <span class="tab-badge">6</span>
+            </button>
+            <button class="tab-btn" data-tab="hot" onclick="switchTab('hot')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>
+                </svg>
+                热榜
+                <span class="tab-badge">8</span>
+            </button>
+        </div>
+
         <div class="news-grid" id="newsGrid">
             <!-- 卡片将通过 JS 动态生成 -->
         </div>

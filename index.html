@@ -750,6 +750,210 @@
         .tab-btn.active .tab-badge {
             background: rgba(255, 255, 255, 0.3);
         }
+
+        /* 并排布局容器 */
+        .dual-panel {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .dual-panel > section {
+            flex: 1;
+            min-width: 0;  /* 防止内容撑开 */
+        }
+
+        @media (max-width: 1024px) {
+            .dual-panel {
+                flex-direction: column;
+            }
+        }
+
+        /* 表格式热榜 TOP10 样式 */
+        .top10-table-section {
+            background: var(--color-bg-surface);
+            border-radius: var(--radius-card);
+            box-shadow: var(--shadow-card);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .top10-table-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--color-divider);
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931a 100%);
+            color: #fff;
+        }
+
+        .top10-table-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .top10-table-meta {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .top10-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .top10-table th {
+            padding: 10px 12px;
+            text-align: left;
+            background: var(--color-bg-base);
+            font-weight: 600;
+            color: var(--color-text-primary);
+            border-bottom: 1px solid var(--color-divider);
+            white-space: nowrap;
+        }
+
+        .top10-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--color-divider);
+            vertical-align: middle;
+        }
+
+        .top10-table tbody tr:hover {
+            background: var(--color-bg-base);
+        }
+
+        .top10-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .top10-table .col-rank {
+            width: 50px;
+            text-align: center;
+        }
+
+        .top10-table .col-title {
+            min-width: 200px;
+        }
+
+        .top10-table .col-heat {
+            width: 60px;
+            text-align: center;
+        }
+
+        .top10-table .col-bar {
+            width: 120px;
+        }
+
+        .top10-table .col-sources {
+            width: 60px;
+            text-align: center;
+        }
+
+        .table-rank {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .table-rank--1 {
+            background: linear-gradient(135deg, #ffd700 0%, #ffb300 100%);
+            color: #fff;
+        }
+
+        .table-rank--2 {
+            background: linear-gradient(135deg, #c0c0c0 0%, #a8a8a8 100%);
+            color: #fff;
+        }
+
+        .table-rank--3 {
+            background: linear-gradient(135deg, #cd7f32 0%, #b87333 100%);
+            color: #fff;
+        }
+
+        .table-rank--default {
+            background: #e8e8e8;
+            color: #666;
+        }
+
+        .table-title-link {
+            color: var(--color-text-primary);
+            text-decoration: none;
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .table-title-link:hover {
+            color: var(--color-accent);
+        }
+
+        .table-heat-value {
+            font-weight: 600;
+            color: #ff6b35;
+        }
+
+        .table-heat-bar-container {
+            width: 100%;
+            height: 8px;
+            background: #eee;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .table-heat-bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .table-heat-bar--hot {
+            background: linear-gradient(90deg, #ff4d4f 0%, #ff7875 100%);
+        }
+
+        .table-heat-bar--warm {
+            background: linear-gradient(90deg, #fa8c16 0%, #ffa940 100%);
+        }
+
+        .table-heat-bar--normal {
+            background: linear-gradient(90deg, #faad14 0%, #ffc53d 100%);
+        }
+
+        .table-source-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px 8px;
+            background: rgba(255, 107, 53, 0.1);
+            color: #ff6b35;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        @media (max-width: 767px) {
+            .top10-table-section {
+                overflow-x: auto;
+            }
+
+            .top10-table {
+                min-width: 500px;
+            }
+
+            .top10-table-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -781,36 +985,63 @@
 
     <!-- 主内容 -->
     <main class="main" role="main">
-        <!-- 分析报告区域 -->
-        <section class="report-section" id="reportSection">
-            <div class="report-header">
-                <div class="report-toggle" onclick="toggleReport()" style="display: flex; align-items: center; gap: 8px;">
-                    <div>
-                        <div class="report-title">📊 智能分析报告</div>
-                        <div class="report-meta" id="reportMeta">点击刷新按钮实时生成</div>
+        <!-- 并排布局：热榜表格 + 分析报告 -->
+        <div class="dual-panel">
+            <!-- 表格式热榜 TOP10 -->
+            <section class="top10-table-section" id="top10TableSection">
+                <div class="top10-table-header">
+                    <span class="top10-table-title">🔥 实时热榜 TOP10</span>
+                    <div class="top10-table-meta">
+                        <span>更新时间: <span id="tableUpdateTime">--:--</span></span>
                     </div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="reportArrow" style="cursor: pointer;" onclick="toggleReport()">
-                        <polyline points="6 9 12 15 18 9"></polyline>
-                    </svg>
-                    <button class="btn btn-primary" onclick="refreshReport()" id="refreshReportBtn" style="padding: 6px 12px; font-size: 12px;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;">
-                            <polyline points="23 4 23 10 17 10"></polyline>
-                            <polyline points="1 20 1 14 7 14"></polyline>
-                            <path d="m3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                <table class="top10-table" id="top10Table">
+                    <thead>
+                        <tr>
+                            <th class="col-rank">排名</th>
+                            <th class="col-title">热点标题</th>
+                            <th class="col-heat">热度</th>
+                            <th class="col-bar">热度条</th>
+                            <th class="col-sources">来源</th>
+                        </tr>
+                    </thead>
+                    <tbody id="top10TableBody">
+                        <!-- 动态生成 -->
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- 分析报告区域 -->
+            <section class="report-section" id="reportSection">
+                <div class="report-header">
+                    <div class="report-toggle" onclick="toggleReport()" style="display: flex; align-items: center; gap: 8px;">
+                        <div>
+                            <div class="report-title">📊 智能分析报告</div>
+                            <div class="report-meta" id="reportMeta">点击刷新按钮实时生成</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="reportArrow" style="cursor: pointer;" onclick="toggleReport()">
+                            <polyline points="6 9 12 15 18 9"></polyline>
                         </svg>
-                        刷新报告
-                    </button>
+                        <button class="btn btn-primary" onclick="refreshReport()" id="refreshReportBtn" style="padding: 6px 12px; font-size: 12px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <polyline points="1 20 1 14 7 14"></polyline>
+                                <path d="m3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                            </svg>
+                            刷新报告
+                        </button>
+                    </div>
                 </div>
-            </div>
-            <div class="report-content" id="reportContent">
-                <div class="report-loading" id="reportLoading">
-                    点击上方"刷新报告"按钮生成最新分析
+                <div class="report-content" id="reportContent">
+                    <div class="report-loading" id="reportLoading">
+                        点击上方"刷新报告"按钮生成最新分析
+                    </div>
+                    <div id="reportBody" class="hidden"></div>
                 </div>
-                <div id="reportBody" class="hidden"></div>
-            </div>
-        </section>
+            </section>
+        </div>
 
         <!-- Tab 切换 -->
         <div class="tab-container">

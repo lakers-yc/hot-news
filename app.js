@@ -553,6 +553,9 @@ async function init() {
     // 绑定刷新全部按钮
     refreshAllBtn.addEventListener('click', refreshAll);
 
+    // 加载综合热榜TOP10
+    loadTop10();
+
     // 获取初始数据
     await fetchAllData(true);
 
@@ -789,3 +792,110 @@ async function refreshReport() {
 //     await originalInit();
 //     loadReport();
 // };
+
+// ============== 综合热榜TOP10功能 ==============
+
+/**
+ * 加载综合热榜TOP10数据
+ */
+async function loadTop10() {
+    const tableUpdateTimeEl = document.getElementById('tableUpdateTime');
+
+    try {
+        const response = await fetch(`${CONFIG.API_BASE}/api/hot-news/top10`);
+        const result = await response.json();
+
+        if (result.code === 200 && result.data && result.data.items) {
+            // 渲染表格式榜单
+            renderTop10Table(result.data.items);
+
+            if (result.data.updateTime && tableUpdateTimeEl) {
+                const timeStr = result.data.updateTime.split(' ')[1];
+                tableUpdateTimeEl.textContent = timeStr;
+            }
+        } else {
+            renderTop10Table([]);
+        }
+    } catch (error) {
+        console.error('加载TOP10失败:', error);
+        renderTop10Table([]);
+    }
+}
+
+/**
+ * 渲染表格式 TOP10
+ */
+function renderTop10Table(items) {
+    const tbody = document.getElementById('top10TableBody');
+
+    if (!tbody || !items || items.length === 0) {
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--color-text-tertiary);">暂无数据</td></tr>';
+        }
+        return;
+    }
+
+    let html = '';
+
+    items.forEach((item, index) => {
+        const rank = item.rank || (index + 1);
+        let rankIcon = '';
+        let rankClass = '';
+
+        if (rank === 1) {
+            rankIcon = '🥇';
+            rankClass = 'table-rank--1';
+        } else if (rank === 2) {
+            rankIcon = '🥈';
+            rankClass = 'table-rank--2';
+        } else if (rank === 3) {
+            rankIcon = '🥉';
+            rankClass = 'table-rank--3';
+        } else {
+            rankIcon = rank;
+            rankClass = 'table-rank--default';
+        }
+
+        const heatWidth = Math.min(item.heat_score, 100);
+        let heatBarClass = 'table-heat-bar--normal';
+        if (heatWidth > 80) {
+            heatBarClass = 'table-heat-bar--hot';
+        } else if (heatWidth > 60) {
+            heatBarClass = 'table-heat-bar--warm';
+        }
+
+        const safeTitle = escapeHtml(item.title);
+        const safeUrl = escapeHtml(item.url) || '#';
+        const sourceList = (item.sources || []).join(', ');
+
+        html += `
+            <tr>
+                <td class="col-rank">
+                    <span class="table-rank ${rankClass}">${rankIcon}</span>
+                </td>
+                <td class="col-title">
+                    <a class="table-title-link"
+                       href="${safeUrl}"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       title="${safeTitle}${sourceList ? ' - 来源: ' + sourceList : ''}">
+                        ${safeTitle}
+                    </a>
+                </td>
+                <td class="col-heat">
+                    <span class="table-heat-value">${item.heat_score}</span>
+                </td>
+                <td class="col-bar">
+                    <div class="table-heat-bar-container">
+                        <div class="table-heat-bar ${heatBarClass}" style="width: ${heatWidth}%"></div>
+                    </div>
+                </td>
+                <td class="col-sources">
+                    <span class="table-source-count">${item.source_count}源</span>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
